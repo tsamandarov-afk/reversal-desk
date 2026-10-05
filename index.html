@@ -68,9 +68,9 @@ canvas{display:block;width:100%}
 </head>
 <body>
 <div class="top">
-  <div class="logo"><i></i><div>REVERSAL DESK<small>SIX AGENTS · SEVEN COINS · POLYMARKET UP/DOWN</small></div></div>
-  <div class="kv"><b id="k_bal5">—</b><span>PAPER BANK 5M</span></div>
-  <div class="kv"><b id="k_bal15">—</b><span>PAPER BANK 15M</span></div>
+  <div class="logo"><i></i><div>REVERSAL DESK<small>SIX AGENTS · SIX COINS · ENTRY ≤ 55¢ · POLYMARKET UP/DOWN</small></div></div>
+  <div class="kv"><b id="k_bal5">—</b><span>VIRTUAL ACCOUNT · $10K START</span></div>
+  <div class="kv"><b id="k_bal15">—</b><span>RETURN SINCE START</span></div>
   <div class="kv"><b id="k_n">—</b><span>CLOSED BETS</span></div>
   <div class="kv"><b id="k_wr">—</b><span>WIN RATE</span></div>
   <div class="sp"></div>
@@ -81,7 +81,7 @@ canvas{display:block;width:100%}
 
 <div class="row r1">
   <div class="card">
-    <div class="h"><span>◆ SWARM PNL · <b id="tfl">5M</b></span><span class="tabs"><button id="b5" class="on">5M</button><button id="b15">15M</button></span></div>
+    <div class="h"><span>◆ SWARM PNL · <b id="tfl">$10K</b></span><span class="tabs"><button id="bd" class="on">$10K</button><button id="b5">5M</button><button id="b15">15M</button></span></div>
     <div class="big" id="pnl">—</div>
     <div class="stats">
       <div><b id="s_n">—</b><span>BETS</span></div>
@@ -94,13 +94,13 @@ canvas{display:block;width:100%}
     <div class="bars" id="bars"></div>
   </div>
   <div class="card">
-    <div class="h"><span>◆ SIGNAL SPECTROGRAM · RSI(4) × 7 COINS</span><span id="spmeta">LIVE CANDLES</span></div>
+    <div class="h"><span>◆ SIGNAL SPECTROGRAM · RSI(4) × 6 COINS</span><span id="spmeta">LIVE CANDLES</span></div>
     <canvas id="spec"></canvas>
   </div>
 </div>
 
 <div class="card orbit">
-  <div class="h"><span>◆ THE ORBIT · ONE EYE · SEVEN COINS</span><span id="orbmeta">SCANNING</span></div>
+  <div class="h"><span>◆ THE ORBIT · ONE EYE · SIX COINS</span><span id="orbmeta">SCANNING</span></div>
   <div class="px" id="orbL"></div><div class="px2" id="orbR"></div>
   <canvas id="orb"></canvas>
 </div>
@@ -113,13 +113,13 @@ canvas{display:block;width:100%}
   <div class="card"><div class="h"><span>◆ BTC / USD · 5M</span><b id="pxv"></b></div><canvas id="px"></canvas></div>
 </div>
 <div class="note">
-  Strategy: one-candle reversal, RSI(4) + Bollinger %B(22, 1.4) + ATR(41) on 5m / 15m candles; the agent buys the opposite side of the Polymarket Up/Down market for BTC, ETH, SOL, XRP, DOGE, BNB, ZEC.
+  Strategy: one-candle reversal, RSI(4) + Bollinger %B(22, 1.4) + ATR(41) on 5m / 15m candles; the agent buys the opposite side of the Polymarket Up/Down market for BTC, ETH, SOL, XRP, DOGE, BNB (no ZEC), only when the entry price is 55¢ or less.
   Four analysts (Spotter, Prior, Edge, Kelly) decide, two executors (Taker, Closer) place and settle. All trades are <b>paper</b> trades at real order-book prices — no real money, not financial advice.
   Live prices: Binance public data. Bets and balances: demo observer, refreshed every few minutes.
 </div>
 
 <script>
-const COINS=['BTC','ETH','SOL','XRP','DOGE','BNB','ZEC'];
+const COINS=['BTC','ETH','SOL','XRP','DOGE','BNB'];
 const CCOL={BTC:'#ff9f2e',ETH:'#7b8cff',SOL:'#a65bff',XRP:'#3d9bff',DOGE:'#f2c94c',BNB:'#ffd23f',ZEC:'#ff8a3d'};
 const AG=[['SPOTTER','#27e08a','reads candles','ANALYST'],['PRIOR','#ff9f2e','base rate','ANALYST'],['EDGE','#ff3fa4','fair − ask','ANALYST'],['KELLY','#a65bff','stake size','ANALYST'],['TAKER','#3d7bff','places order','EXECUTION'],['CLOSER','#ff4d5e','settles','EXECUTION']];
 const P={rsi:4,bb:22,bbk:1.4,atr:41,hi:90,lo:12,pbhi:.85,pblo:-.2,amin:.26,amax:13.5};
@@ -145,17 +145,21 @@ async function refresh(){await Promise.all(COINS.map(loadKl));drawSpec();drawPx(
 async function loadFeed(){try{const r=await fetch('feed.json?'+Date.now());feed=await r.json();fillStatic()}catch(e){}}
 
 // ---------- static panels ----------
-function cur(){return feed?(tf==='5m'?feed.m5:feed.m15):null}
+let view='desk';
+function cur(){if(!feed)return null;if(view==='5m')return feed.m5;if(view==='15m')return feed.m15;
+  const d=feed.desk,as=d.bets.map(b=>b.ask);
+  return{start:d.start,balance:d.balance,closed:d.closed,wins:d.wins,stake:d.start*d.pct,avg_ask:as.reduce((a,b)=>a+b,0)/as.length,coins:d.coins,curve:d.curve,
+    bets:d.bets.map(b=>({...b,pnl:b.pnl})),bt:feed.m5.bt}}
 function fillStatic(){
-  if(!feed)return;const a=feed.m5,b=feed.m15,d=cur();
-  $('k_bal5').textContent='$'+fm(a.balance);$('k_bal15').textContent='$'+fm(b.balance);
-  const n=a.closed+b.closed,w=a.wins+b.wins;$('k_n').textContent=n;$('k_wr').textContent=fm(w/n*100,1)+'%';
+  if(!feed)return;const dk=feed.desk,d=cur();
+  $('k_bal5').textContent='$'+fm(dk.balance);const rr=(dk.balance/dk.start-1)*100;$('k_bal15').innerHTML=`<span class="${rr>=0?'up':'dn'}">${rr>=0?'+':''}${fm(rr,1)}%</span>`;
+  $('k_n').textContent=dk.closed;$('k_wr').textContent=fm(dk.wins/dk.closed*100,1)+'%';
   const pnl=d.balance-d.start;$('pnl').innerHTML=`<span class="${pnl>=0?'up':'dn'}">${pnl>=0?'+':'−'}$${fm(Math.abs(pnl))}</span>`;
   $('s_n').textContent=d.closed;$('s_wr').textContent=fm(d.wins/d.closed*100,1)+'%';
   $('s_ask').textContent=d.avg_ask?fm(d.avg_ask*100,1)+'¢':'—';$('s_be').textContent=d.bt.breakeven?fm(d.bt.breakeven,1)+'%':'—';
   $('s_bt').textContent=d.bt.wr?fm(d.bt.wr,1)+'%':'—';$('s_dd').textContent=d.bt.max_dd?fm(d.bt.max_dd,0)+'%':'—';
   $('bars').innerHTML=COINS.map(c=>{const v=d.coins[c]||{};const pn=v.pnl||0;return `<div><div class="bl"><span>${c} · ${v.n||0} bets</span><span class="${pn>=0?'up':'dn'}">${pn>=0?'+':''}${fm(pn)}</span></div><div class="bar"><i style="width:${v.n?Math.max(4,v.w/v.n*100):0}%;background:${CCOL[c]}"></i></div></div>`}).join('');
-  $('tfl').textContent=$('tfl2').textContent=tf.toUpperCase();$('balv').textContent='$'+fm(d.balance);
+  $('tfl').textContent=$('tfl2').textContent=view==='desk'?'$10K':tf.toUpperCase();$('balv').textContent='$'+fm(d.balance);
   drawBal();
 }
 function drawBal(){
@@ -272,8 +276,8 @@ requestAnimationFrame(orbit);
 
 // ---------- wiring ----------
 $('clock').textContent='';setInterval(()=>$('clock').textContent=new Date().toISOString().slice(11,19),1000);
-function setTf(v){tf=v;$('b5').classList.toggle('on',v==='5m');$('b15').classList.toggle('on',v==='15m');live={};fillStatic();refresh()}
-$('b5').onclick=()=>setTf('5m');$('b15').onclick=()=>setTf('15m');
+function setView(v){view=v;const t=v==='15m'?'15m':'5m',ch=t!==tf;tf=t;['d','5','15'].forEach(k=>$('b'+k).classList.toggle('on',(k==='d'?'desk':k+'m')===v));if(ch)live={};fillStatic();if(ch)refresh()}
+$('bd').onclick=()=>setView('desk');$('b5').onclick=()=>setView('5m');$('b15').onclick=()=>setView('15m');
 addEventListener('resize',()=>{drawBal();drawSpec();drawPx()});
 loadFeed();refresh();setInterval(refresh,20000);setInterval(loadFeed,60000);
 </script>
